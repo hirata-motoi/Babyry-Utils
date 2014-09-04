@@ -13,7 +13,7 @@ my $SecretConf = require("$home/ParseAnalyticUtils/conf/SecretConf.pm");
 my $AppId = $SecretConf->{"AppId"};
 my $RESTAPIKey = $SecretConf->{"RESTAPIKey"};
 
-my $BACKUP_PARSE_DIR = "/data/backup/parse/tmp";
+my $BACKUP_PARSE_DIR = "/data/backup/parse";
 
 my @classes = @{$Conf->{classes}};
 

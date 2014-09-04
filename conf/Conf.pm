@@ -13,5 +13,14 @@
         "NotificationHistory",
         "PushNotificationEvent",
         "ShardConf"
-    ]
+    ],
+    logClasses => [
+        "CritLog",
+        "WarnLog",
+        "InfoLog"
+    ],
+    imageClasses => [
+        "ChildImage1",
+        "ChildImage2",
+    ],
 }
