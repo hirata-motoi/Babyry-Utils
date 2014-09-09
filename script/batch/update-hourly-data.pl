@@ -26,6 +26,8 @@ my $now = sprintf("%04d-%02d-%02dT%02d:00:00.000Z", $year+1900, $mon + 1, $mday,
 ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = gmtime(time - 60*60);
 my $hour_ago = sprintf("%04d-%02d-%02dT%02d:00:00.000Z", $year+1900, $mon + 1, $mday, $hour);
 
+my $yyyymmdd = sprintf("%04d%02d%02d", $year+1900, $mon + 1, $mday);
+
 my @classes = @{$Conf->{imageClasses}};
 
 my $createdAt_hash = {
@@ -51,7 +53,9 @@ my %params = (
 my $ua = LWP::UserAgent->new;
 
 my $hourly_total_image_num = 0;
+my $hourly_total_image_num_today = 0;
 my $hourly_total_best_image_num = 0;
+my $hourly_total_best_image_num_today = 0;
 
 for (@classes) {
     my $url = URI->new("https://api.parse.com/1/classes/$_");
@@ -71,8 +75,14 @@ for (@classes) {
         for my $res (keys %{$data}) {
             for (@{$data->{$res}}) {
                 $hourly_total_image_num++;
+                if ($_->{date} eq $yyyymmdd) {
+                    $hourly_total_image_num_today++;
+                }
                 if ($_->{bestFlag} eq "choosed") {
                     $hourly_total_best_image_num++;
+                    if ($_->{date} eq $yyyymmdd) {
+                        $hourly_total_best_image_num_today++;
+                    }
                 }
             }
         }
@@ -81,3 +91,5 @@ for (@classes) {
 
 $gf->post('Statistics', 'ImageHourly', "NumOfChildImage", $hourly_total_image_num);
 $gf->post('Statistics', 'ImageHourly', "NumOfChildBestShotImage", $hourly_total_best_image_num);
+$gf->post('Statistics', 'ImageHourly', "NumOfChildImageToday", $hourly_total_image_num_today);
+$gf->post('Statistics', 'ImageHourly', "NumOfChildBestShotImageToday", $hourly_total_best_image_num_today);
