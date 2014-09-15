@@ -23,4 +23,13 @@
         "ChildImage1",
         "ChildImage2",
     ],
+    staffFamilyId => [
+        "fxUbOL",
+        "fVinLR",
+        "few8LR",
+        "fcRMSh",
+        "f7EVuY",
+        "fzdLFU",
+        "fuSNUH",
+    ],
 }
