@@ -2,20 +2,24 @@
 
 use strict;
 use warnings;
+
 use LWP::UserAgent;
 use HTTP::Request;
 use JSON::XS;
-use URI;
 use Getopt::Long;
 use Term::UI;
 use Term::ReadLine;
 use YAML;
+use DateTime;
+use File::Path qw/mkpath/;
 
 use BabyryUtils::Common;
 
-my $ua          = LWP::UserAgent->new;
-my $uri_base    = 'https://api.parse.com/1/classes/%s';
-my $uri_disable = 'https://api.parse.com/1/functions/disable';
+my $UA          = LWP::UserAgent->new;
+my $URI_BASE    = 'https://api.parse.com/1/classes/%s';
+my $URI_DISABLE = 'https://api.parse.com/1/functions/user_delete';
+my $LOG_DIR     = 'log';
+my $LOG_FILE_BASE = 'delete_redundant_record.log.%d';
 
 my $APPLICATION_ID = BabyryUtils::Common->get_key_vault('parse_application_id');
 my $CLIENT_KEY     = BabyryUtils::Common->get_key_vault('parse_client_key');
@@ -23,20 +27,7 @@ my @family_ids;
 
 GetOptions('family_id|f=s' => \@family_ids);
 
-die(sprintf('application_id:%s client_key:%s', $APPLICATION_ID, $CLIENT_KEY));
-
 main();
-
-=put
-User
-Child
-ChildImage
-AWSの画像 RestAPIを提供してる？
-Comment
-FamilyRole
-    該当familyの両者がターゲット or chooserかuploaderのどちらかが空
-TutorialMap
-=cut
 
 sub main {
     my @users = get_from_user(@family_ids);
@@ -68,7 +59,7 @@ sub main {
         return;
     }
 
-    disable_objects(
+    delete_objects(
         users         => \@users,
         children      => \%children,
         family_ids    => \@family_ids,
@@ -87,7 +78,6 @@ sub get_from_user {
     return @$users;
 }
 
-# family_id => [child, ....]
 sub get_from_child {
     my (@family_ids) = @_;
 
@@ -239,14 +229,14 @@ sub create_output_text {
 sub get {
     my ($class_name, $params) = @_;
 
-    my $uri = sprintf $uri_base, $class_name;
+    my $uri = sprintf $URI_BASE, $class_name;
     $uri    .= sprintf '?where=%s', encode_json($params);
 
     print $uri, "\n";
 
     my $req = HTTP::Request->new("GET", $uri);
     $req->header("X-Parse-Application-Id" => $APPLICATION_ID, "X-Parse-REST-API-Key" => $CLIENT_KEY);
-    my $res = $ua->request($req);
+    my $res = $UA->request($req);
 
     if ($res->is_success) {
         my @result = ();
@@ -292,7 +282,7 @@ sub format_lines {
     return join "\n", @lines;
 }
 
-sub disable_objects {
+sub delete_objects {
     my %params = @_;
 
 #        users         => \@users,
@@ -330,35 +320,52 @@ sub disable_objects {
 
         # family_role
         $targets{FamilyRole} ||= [];
-        push @{$targets{FamilyRole}}, $params{family_roles}{$family_id}{objectId};
+        push @{$targets{FamilyRole}}, $params{family_roles}{$family_id}{objectId}
+            if $params{family_roles}{$family_id}{objectId};
 
         # tutorial map
         $targets{TutorialMap} ||= [];
         for my $user_id (keys %{$params{tutorial_maps}}) {
-            push @{$targets{TutorialMap}}, $params{tutorial_maps}{$user_id}{objectId};
+            push @{$targets{TutorialMap}}, $params{tutorial_maps}{$user_id}{objectId}
+                if $params{tutorial_maps}{$user_id}{objectId};
         }
     }
-    disable(%targets);
+    delete(%targets);
 }
 
-sub disable {
+sub delete {
     my %targets = @_;
 
-    my $req = HTTP::Request->new("POST", $uri_disable);
+    my $req = HTTP::Request->new("POST", $URI_DISABLE);
     $req->header(
         'X-Parse-Application-Id' => $APPLICATION_ID,
         'X-Parse-REST-API-Key'   => $CLIENT_KEY,
         'Content-Type'           => 'application/json'
     );
     $req->content( encode_json(\%targets) );
-    my $res = $ua->request($req);
+    my $res = $UA->request($req);
 
     if ($res->is_success) {
-        print $res->content, "\n";
+        my $content = decode_json($res->content);
+        output_log( encode_json($content->{result}) );
+        print "normal ended\n";
     } else {
         die $res->message;
     }
+}
 
+sub output_log {
+    my ($json) = shift;
+    my $dt = DateTime->now->set_time_zone('Asia/Tokyo');
+    my $log_file_path = File::Spec->catfile($LOG_DIR, sprintf($LOG_FILE_BASE, $dt->ymd('')));
+
+    mkpath $LOG_DIR;
+
+    open my $fh, ">> $log_file_path" or die("Cannot open $log_file_path");
+    print $fh join("\t", $dt->strftime('%Y/%m/%d %H:%M:%S'), $json), "\n";
+    close $fh;
+
+    print $json, "\n\n";
 }
 
 

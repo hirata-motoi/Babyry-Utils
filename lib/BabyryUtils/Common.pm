@@ -11,9 +11,15 @@ use BabyryUtils::ConfigLoader;
 our $__KEYVAULT;
 
 sub env {
-    return 'local' if !$ENV{APP_ENV};
-    return $ENV{APP_ENV} eq 'production' ? 'production' :
-           $ENV{APP_ENV} eq 'development' ? 'development' :
+    return 'local' if ! -f '/etc/.secret/env';
+
+    open my $fh, '< /etc/.secret/env' or return 'local';
+    my $env_string = (map { chomp; $_ } <$fh>)[0];
+    close $fh;
+
+    return 'local' if !$env_string;
+    return $env_string eq 'production'  ? 'production'  :
+           $env_string eq 'development' ? 'development' :
            'local' ;
 }
 
@@ -26,6 +32,7 @@ sub get_key_vault {
         ? $__KEYVAULT->{$key}
         : croakf("get_key_vault failed. key: $key");
 }
+
 sub _load_keyvault {
     my $config_full_path = sprintf('%s/%s',
         BabyryUtils->base_dir,
