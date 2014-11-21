@@ -15,12 +15,13 @@ use File::Path qw/mkpath/;
 
 use BabyryUtils::Common;
 
-my $CONFIG      = BabyryUtils::Common->config;
-my $UA          = LWP::UserAgent->new;
-my $URI_BASE    = 'https://api.parse.com/1/classes/%s';
-my $URI_DISABLE = sprintf $CONFIG->{cloud_code_url_base}, 'user_delete';
-my $LOG_DIR     = 'log';
+my $CONFIG        = BabyryUtils::Common->config;
+my $UA            = LWP::UserAgent->new;
+my $URI_BASE      = 'https://api.parse.com/1/classes/%s';
+my $URI_DISABLE   = sprintf $CONFIG->{cloud_code_url_base}, 'user_delete';
+my $LOG_DIR       = 'log';
 my $LOG_FILE_BASE = 'delete_redundant_record.log.%d';
+my $QUERY_LIMIT   = 1000;
 
 my $APPLICATION_ID = BabyryUtils::Common->get_key_vault('parse_application_id');
 my $CLIENT_KEY     = BabyryUtils::Common->get_key_vault('parse_client_key');
@@ -234,7 +235,7 @@ sub get {
     my ($class_name, $params) = @_;
 
     my $uri = sprintf $URI_BASE, $class_name;
-    $uri    .= sprintf '?where=%s', encode_json($params);
+    $uri    .= sprintf '?limit=%d&where=%s', $QUERY_LIMIT, encode_json($params);
 
     print $uri, "\n";
 
