@@ -42,15 +42,17 @@ sub main {
     my %child_images   = get_from_child_image(%children);
     my %family_roles   = get_from_family_role(@family_ids);
     my %tutorial_maps  = get_from_tutorial_map(@users);
+    my %email_verifies = get_from_email_verify(@users);
 
     my $output = create_output_text({
-        users         => \@users,
-        children      => \%children,
-        family_ids    => \@family_ids,
-        comments      => \%comments,
-        child_images  => \%child_images,
-        family_roles  => \%family_roles,
-        tutorial_maps => \%tutorial_maps,
+        users          => \@users,
+        children       => \%children,
+        family_ids     => \@family_ids,
+        comments       => \%comments,
+        child_images   => \%child_images,
+        family_roles   => \%family_roles,
+        tutorial_maps  => \%tutorial_maps,
+        email_verifies => \%email_verifies,
     });
 
     my $term = Term::ReadLine->new('Delete Users');
@@ -65,13 +67,14 @@ sub main {
     }
 
     delete_objects(
-        users         => \@users,
-        children      => \%children,
-        family_ids    => \@family_ids,
-        comments      => \%comments,
-        child_images  => \%child_images,
-        family_roles  => \%family_roles,
-        tutorial_maps => \%tutorial_maps,
+        users          => \@users,
+        children       => \%children,
+        family_ids     => \@family_ids,
+        comments       => \%comments,
+        child_images   => \%child_images,
+        family_roles   => \%family_roles,
+        tutorial_maps  => \%tutorial_maps,
+        email_verifies => \%email_verifies,
     );
 }
 
@@ -174,6 +177,16 @@ sub get_from_tutorial_map {
     return %tutorial_maps;
 }
 
+sub get_from_email_verify {
+    my (@users) = @_;
+
+    my $results = get('EmailVerify', { userId => {'$in' => [map { $_->{userId} } @users] } } ) || [];
+
+    my %email_verifies = map { $_->{userId} => $_ } @$results;
+
+    return %email_verifies;
+}
+
 sub create_output_text {
     my $params = shift;
 
@@ -194,6 +207,9 @@ sub create_output_text {
             };
             if (my $tutorial_map = $params->{tutorial_maps}{$user->{userId}}) {
                 $user_unit->{TutorialMap} = join("\t", @$tutorial_map{qw/objectId/});
+            }
+            if (my $email_verify = $params->{email_verifies}{$user->{userId}}) {
+                $user_unit->{EmailVerify} = join("\t", @$email_verify{qw/objectId/});
             }
             push @{$unit{User}}, $user_unit;
         }
@@ -264,7 +280,10 @@ sub format_lines {
 
         push @lines, 'User:';
         for my $user (@{$unit->{User}}) {
-            push @lines, "\t" . $user->{info} . "\t" . sprintf('(TutorialMap:%s)', $user->{TutorialMap});
+            push @lines, "\t"
+                . $user->{info}
+                . "\t"
+                . sprintf('(TutorialMap:%s) (EmailVerify:%s)', $user->{TutorialMap}, $user->{EmailVerify});
         }
 
         push @lines, 'Child:';
@@ -326,6 +345,13 @@ sub delete_objects {
         for my $user_id (keys %{$params{tutorial_maps}}) {
             push @{$targets{TutorialMap}}, $params{tutorial_maps}{$user_id}{objectId}
                 if $params{tutorial_maps}{$user_id}{objectId};
+        }
+
+        # email verify
+        $targets{EmailVerify} ||= [];
+        for my $user_id (keys %{$params{email_verifies}}) {
+            push @{$targets{EmailVerify}}, $params{email_verifies}{$user_id}{objectId}
+                if $params{email_verifies}{$user_id}{objectId};
         }
     }
     execute_delete(%targets);
