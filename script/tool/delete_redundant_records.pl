@@ -310,7 +310,7 @@ sub delete_objects {
             $targets{ChildImage} ||= [];
             push @{$targets{ChildImage}}, {
                 'className'   => $childImageClass,
-                'childImages' => [map { $_->{objectId} } @{$params{child_images}{$child->{objectId}}}],
+                'objectIds' => [map { $_->{objectId} } @{$params{child_images}{$child->{objectId}}}],
             };
 
             # comment
@@ -318,7 +318,7 @@ sub delete_objects {
             $targets{Comment} ||= [];
             push @{$targets{Comment}}, {
                 'className'   => $commentClass,
-                'comments' => [map { $_->{objectId} } @{$params{comments}{$child->{objectId}}}],
+                'objectIds' => [map { $_->{objectId} } @{$params{comments}{$child->{objectId}}}],
             };
         }
 
