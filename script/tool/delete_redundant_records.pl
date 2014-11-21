@@ -289,13 +289,6 @@ sub format_lines {
 sub delete_objects {
     my %params = @_;
 
-#        users         => \@users,
-#        children      => \%children,
-#        family_ids    => \@family_ids,
-#        comments      => \%comments,
-#        child_images  => \%child_images,
-#        family_roles  => \%family_roles,
-#        tutorial_maps => \%tutorial_maps,
     my %targets = ();
     $targets{User} = [map { $_->{objectId} } @{$params{users}}];
 
