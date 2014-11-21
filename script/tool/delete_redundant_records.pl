@@ -330,10 +330,10 @@ sub delete_objects {
                 if $params{tutorial_maps}{$user_id}{objectId};
         }
     }
-    delete(%targets);
+    execute_delete(%targets);
 }
 
-sub delete {
+sub execute_delete {
     my %targets = @_;
 
     my $req = HTTP::Request->new("POST", $URI_DISABLE);
