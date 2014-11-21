@@ -11,16 +11,24 @@ use BabyryUtils::ConfigLoader;
 our $__KEYVAULT;
 
 sub env {
-    return 'local' if ! -f '/etc/.secret/env';
+    my $env_file = '/etc/.secret/babyry_env';
+    croakf("$env_file not found") if ! -f $env_file;
 
-    open my $fh, '< /etc/.secret/env' or return 'local';
+    open my $fh, "< $env_file" or croakf("Cannot open $env_file");
     my $env_string = (map { chomp; $_ } <$fh>)[0];
     close $fh;
 
-    return 'local' if !$env_string;
-    return $env_string eq 'production'  ? 'production'  :
-           $env_string eq 'development' ? 'development' :
-           'local' ;
+    unless ( $env_string &&
+        (
+            $env_string eq 'production'  ||
+            $env_string eq 'development' ||
+            $env_string eq 'local'
+        )
+    ) {
+        croakf('Invalid env : %s', $env_string || '');
+    }
+
+    $env_string;
 }
 
 sub config { BabyryUtils::ConfigLoader->new(env())->config }
