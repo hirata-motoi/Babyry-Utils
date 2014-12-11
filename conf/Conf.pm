@@ -14,8 +14,8 @@
         "PincodeList",
         "NotificationHistory",
         "PushNotificationEvent",
-        "ShardConf"
-        "TutorialMap",
+        "ShardConf",
+        "TutorialMap"
     ],
     backupToMySQL => [
         "_User",
@@ -30,6 +30,9 @@
         "NotificationHistory",
         "PushNotificationEvent",
         "TutorialMap",
+        "CritLog",
+        "InfoLog",
+        "TrackingLog",
     ],
     logClasses => [
         "CritLog",

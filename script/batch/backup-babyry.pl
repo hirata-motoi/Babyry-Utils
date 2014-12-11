@@ -24,13 +24,12 @@ my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(tim
 my $yyyymmdd = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
 
 # create db
-my $dbh = DBI->connect('dbi:mysql::mu001', $SecretConf->{'mysql'}->{'user'}, $SecretConf->{'mysql'}->{'password'}, {
+my $dbh = DBI->connect('dbi:mysql::mu002', $SecretConf->{'mysql'}->{'user'}, $SecretConf->{'mysql'}->{'password'}, {
 });
 
 my $res = $dbh->do("SHOW CREATE DATABASE babyry_$yyyymmdd");
 if ($res) {
-    print "Database already exist.\n";
-    exit;
+    die "Database already exist.";
 }
 $dbh->do("CREATE DATABASE babyry_$yyyymmdd");
 $dbh->do("USE babyry_$yyyymmdd");
@@ -71,7 +70,7 @@ for my $class (@classes) {
     }
 }
 
-sub insert_record() {
+sub insert_record {
     my $class = shift;
     my $created_keys = shift;
     my $record = shift;
@@ -86,9 +85,12 @@ sub insert_record() {
         # from key is nickname, value is AAAAA
         my @ddl_keys;
         for my $key (keys %{$record}) {
-            (my $type, my $value) = get_type_and_value($key, $record->{$key});
+            (my $type, my $value) = get_type_and_value($key, $record->{$key}, $class);
             $type_from_key->{$key} = $type;
+            #$value =~ s/\"/\\"/g;
+            $value =~ s/\n/ /g;
             $value_from_key->{$key} = $value;
+           # print "$value\n";
             $created_keys->{$key} = 1;
             push @ddl_keys, "$key $type_from_key->{$key}";
         }
@@ -96,12 +98,15 @@ sub insert_record() {
         $dbh->do($ddl);
     } else {
         for my $key (keys %{$record}) {
-            (my $type, my $value) = get_type_and_value($key, $record->{$key});
+            (my $type, my $value) = get_type_and_value($key, $record->{$key}, $class);
             $type_from_key->{$key} = $type;
+            #$value =~ s/\"/\\"/g;
+            $value =~ s/\n/ /g;
             $value_from_key->{$key} = $value;
+            # print "$value\n";
 
             if (!$created_keys->{$key}) {
-                (my $type, my $value) = get_type_and_value($key, $record->{$key});
+                (my $type, my $value) = get_type_and_value($key, $record->{$key}, $class);
                 my $alter_ddl = "ALTER TABLE $class ADD $key $type;";
                 $dbh->do($alter_ddl);
                 $created_keys->{$key} = 1;
@@ -110,7 +115,7 @@ sub insert_record() {
     }
 
     # insert value
-    my $insert_query = 'INSERT INTO ' . $class . ' (' . join(',', keys %{$value_from_key}) . ') VALUES ("' . join('","', values %{$value_from_key}) . '");';
+    my $insert_query = 'INSERT INTO ' . $class . ' (' . join(',', keys %{$value_from_key}) . ") VALUES ('" . join("','", values %{$value_from_key}) . "');";
     $dbh->do($insert_query);
 
     return $created_keys;
@@ -119,6 +124,7 @@ sub insert_record() {
 sub get_type_and_value {
     my $key = shift;
     my $value = shift;
+    my $class = shift;
 
     my $type = 'VARCHAR(255)';
 
@@ -134,7 +140,7 @@ sub get_type_and_value {
             second => $6
         );
         if ($key =~ /^createdAt|updatedAt$/) {
-            $date->subtract(hours => 9);
+            $date->add(hours => 9);
             $value = $date->ymd('-') . ' ' . $date->hms(':');
         } else {
             $value = "$1-$2-$3 $4:$5:$6";
@@ -145,16 +151,34 @@ sub get_type_and_value {
                 $type = 'DATETIME';
                 $value = "$1-$2-$3 $4:$5:$6";
             } else {
-                exit;
+                die "cannot parse date";
             }
         } elsif ($value->{'__type'} eq 'Pointer') {
             $value = $value->{'objectId'};
+        } elsif ($value->{'__type'} eq 'File') {
+            my $trackingLogDir = '/data/backup/babyry/trackingLog';
+            my $trackingLogName;
+            if ($value->{'name'} =~ /([^-]+)-([^-]+)-(\d+)\.txt/) {
+                $trackingLogName = $trackingLogDir . '/' . "$1-$2-$3.txt";
+            } else {
+                die "cannot parse log name";
+            }
+            my $trackingLogURL = $value->{'url'};
+            if (-f $trackingLogName) {
+                print "file already downloaded.\n";
+            } else {
+                print "download trackingLog $trackingLogName\n";
+                system("wget $trackingLogURL -q -O $trackingLogName");
+            }
         } else {
-            exit;
+            die "unknown type";
         }
     } elsif ($value =~ /^\-*[0-9]+$/) {
         $type = 'BIGINT';
+    } elsif ($class eq 'CritLog' && $key eq 'message') {
+        $type = 'TEXT';
     }
+
     return ($type, $value);
 }
 
