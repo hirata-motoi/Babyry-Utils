@@ -10,21 +10,24 @@ use DBI;
 use DateTime;
 use Encode;
 
-my $home = $ENV{"HOME"};
-my $Conf = require("$home/Babyry-Utils/conf/Conf.pm");
-my $SecretConf = require("$home/Babyry-Utils/conf/SecretConf.pm");
-my $AppId = $SecretConf->{"AppId"};
-my $RESTAPIKey = $SecretConf->{"RESTAPIKey"};
+use BabyryUtils::Common;
+
+my $CONFIG          = BabyryUtils::Common->config;
+my $HOME            = $ENV{"HOME"};
+my $APPLICATION_ID  = BabyryUtils::Common->get_key_vault('parse_application_id');
+my $CLIENT_KEY      = BabyryUtils::Common->get_key_vault('parse_client_key');
+my $MYSQL_USER      = BabyryUtils::Common->get_key_vault('mysql_user');
+my $MYSQL_PASS      = BabyryUtils::Common->get_key_vault('mysql_pass');
 
 my $BACKUP_PARSE_DIR = "/data/backup/babyry";
 
-my @classes = @{$Conf->{backupToMySQL}};
+my $CLASSES = $CONFIG->{backupToMySQL};
 
 my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(time);  
 my $yyyymmdd = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
 
 # create db
-my $dbh = DBI->connect('dbi:mysql::mu002', $SecretConf->{'mysql'}->{'user'}, $SecretConf->{'mysql'}->{'password'}, {
+my $dbh = DBI->connect($CONFIG->{db_master}, $MYSQL_USER, $MYSQL_PASS, {
 });
 
 my $res = $dbh->do("SHOW CREATE DATABASE babyry_$yyyymmdd");
@@ -34,20 +37,21 @@ if ($res) {
 $dbh->do("CREATE DATABASE babyry_$yyyymmdd");
 $dbh->do("USE babyry_$yyyymmdd");
 
-for my $class (@classes) {
+for my $class (@$CLASSES) {
     print "Backup $class\n";
 
     my $created_keys = {};
 
     my $index = 0;
     my $limit = 1000;
+    my $insert_record_list = [];
     while(1) {
         my $skip = $limit * $index;
         my $ua = LWP::UserAgent->new;
         my $res = $ua->get(
             "https://api.parse.com/1/classes/$class?limit=$limit&skip=$skip",
-            "X-Parse-Application-Id" => $AppId,
-            "X-Parse-REST-API-Key"   => $RESTAPIKey
+            "X-Parse-Application-Id" => $APPLICATION_ID,
+            "X-Parse-REST-API-Key"   => $CLIENT_KEY
         );
 
         if ($res->is_success) {
@@ -58,7 +62,7 @@ for my $class (@classes) {
             my $res_num = 0;
             for my $res (keys %{$data}) {
                 for my $record (@{$data->{$res}}) {
-                    my $created_keys = &insert_record($class, $created_keys, $record);
+                    my $created_keys = &prepare_record($class, $created_keys, $record, $insert_record_list);
                     $res_num++;
                 }
             }
@@ -68,12 +72,45 @@ for my $class (@classes) {
         }
         $index++;
     }
+    &insert_record($class, $insert_record_list);
 }
 
 sub insert_record {
     my $class = shift;
+    my $insert_record_list = shift;
+
+    my $max_num = 0;
+    my @all_keys;
+    for my $record (@$insert_record_list) {
+        my $num = keys %$record;
+        if ($num > $max_num) {
+            $max_num = $num;
+            @all_keys = keys %$record;
+        }
+    }
+
+    my @query_values;
+    for my $record (@$insert_record_list) {
+        my @sorted_value = ();
+        for my $key (@all_keys) {
+            if (!$record->{$key}) {
+                $record->{$key} = 'NULL';
+            }
+            push @sorted_value, $record->{$key};
+        }
+        my $query_value_string = '("' . join('","', @sorted_value) . '")';
+        $query_value_string =~ s/\"NULL\"/NULL/g;
+        push @query_values, $query_value_string;
+    }
+    my $insert_query = 'INSERT INTO ' . $class . ' (' . join(',', @all_keys) . ') VALUES ' . join(',', @query_values) . ';';
+    $dbh->do($insert_query);
+}
+
+sub prepare_record {
+    my $class = shift;
     my $created_keys = shift;
     my $record = shift;
+    my $insert_record_list = shift;
 
     my $res = $dbh->do("SHOW CREATE TABLE $class");
 
@@ -100,8 +137,8 @@ sub insert_record {
         for my $key (keys %{$record}) {
             (my $type, my $value) = get_type_and_value($key, $record->{$key}, $class);
             $type_from_key->{$key} = $type;
-            #$value =~ s/\"/\\"/g;
-            $value =~ s/\n/ /g;
+            $value =~ s/\"/\\"/g;
+            #$value =~ s/\n/ /g;
             $value_from_key->{$key} = $value;
             # print "$value\n";
 
@@ -114,9 +151,7 @@ sub insert_record {
         }
     }
 
-    # insert value
-    my $insert_query = 'INSERT INTO ' . $class . ' (' . join(',', keys %{$value_from_key}) . ") VALUES ('" . join("','", values %{$value_from_key}) . "');";
-    $dbh->do($insert_query);
+    push @$insert_record_list, $value_from_key;
 
     return $created_keys;
 }
@@ -128,8 +163,9 @@ sub get_type_and_value {
 
     my $type = 'VARCHAR(255)';
 
-    if ($value =~ /^(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)/) {
-        $type = 'DATETIME';
+    if ($value =~ /^(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)\.(\d\d\d)Z$/) {
+        $type = 'DATETIME(3)';
+        my $msec = $7;
         my $date = DateTime->new(
             time_zone => 'local',
             year => $1,
@@ -141,15 +177,15 @@ sub get_type_and_value {
         );
         if ($key =~ /^createdAt|updatedAt$/) {
             $date->add(hours => 9);
-            $value = $date->ymd('-') . ' ' . $date->hms(':');
+            $value = $date->ymd('-') . ' ' . $date->hms(':') . '.' . $msec;
         } else {
-            $value = "$1-$2-$3 $4:$5:$6";
+            $value = "$1-$2-$3 $4:$5:$6.$msec";
         }
     } elsif (ref($value) eq "HASH") {
         if ($value->{'__type'} eq 'Date') {
-            if ($value->{'iso'} =~ /^(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)/) {
-                $type = 'DATETIME';
-                $value = "$1-$2-$3 $4:$5:$6";
+            if ($value->{'iso'} =~ /^(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)\.(\d\d\d)Z$/) {
+                $type = 'DATETIME(3)';
+                $value = "$1-$2-$3 $4:$5:$6.$7";
             } else {
                 die "cannot parse date";
             }
