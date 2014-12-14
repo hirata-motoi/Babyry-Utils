@@ -1,0 +1,43 @@
+<html>
+  <head>
+    <script language="javascript" type="text/javascript" src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <!--[if lt IE 9]>
+      <script language="javascript" type="text/javascript" src="excanvas.min.js"></script>
+    <![endif]-->
+    <script language="javascript" type="text/javascript" src="../../static/js/jquery.jqplot.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="../../static/css/jquery.jqplot.min.css" />
+  </head>
+  <body>
+    <!-- <div id="jqPlot-sample" style="height: 300px; width: 300px;"></div> -->
+<script>
+        var d   = [[1,0.980257011135107],[1,1.94921527165045],[15,12.6936466731284],[1,0.933822768868813],[0,0],[1,2.05876486975095],[6,6.38410043726901],[89,83.9276608526184],[73,72.1248599887819],[15,26.9570204005988],[1,6.69901422144894],[3,2.76752353836426],[0,0],[0,0],[3,3.26124948634062],[15,15.9189958945941],[2,17.8391134951655],[0,0],[0,0],[9,80.0510613765982],[31,32.7907105719068],[15,79.7603742337065],[20,42.4353051916207],[1,1.06152338926726],[5,58.8957858156589],[0,0],[11,11.7829088312307],[31,77.3824708941772],[31,29.8019047894567],[19,89.0167649325135],[10,18.7656910172503],[1,1.08448502337479],[1,1.18710670220659],[2,24.6003860893928],[51,95.0085782413883],[2,5.08445401702762],[21,19.4507646088707],[27,88.8553700593055],[0,0],[6,19.1832253351791],[6,33.4769752158019],[0,0],[13,12.2222557134856],[8,8.49711151069718],[2,1.95914346882451],[87,98.3217494490592],[0,0],[101,97.0224393298443],[108,96.8605944233534],[8,7.68402557562101],[14,36.7558356270279],[8,15.249222867657],[10,89.957457619001]],
+        xlabel = "bestshot num after start",
+        ylabel = "bestshot ratio",
+        xticks = [0,108],
+        yticks = [0,98.3217494490592];
+</script>
+
+  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+  <script type="text/javascript">
+    google.load("visualization", "1", {packages:["corechart"]});
+    var dd = new Array();
+    dd.push([xlabel, ylabel]);
+    for (var i = 0; i < d.length; i++) {
+      dd.push([parseInt(d[i][0]), parseInt(d[i][1])]);
+    }
+
+    google.setOnLoadCallback(
+    function () {
+        var data = google.visualization.arrayToDataTable(dd);
+        var options = {
+          title: 'title',
+          hAxis: {title: xlabel},
+          vAxis: {title: ylabel}
+        };
+        var chart = new google.visualization.ScatterChart(document.getElementById('gct_sample_scatter'));
+        chart.draw(data, options);
+      } );
+  </script>
+  <div id="gct_sample_scatter" style="width:80%; height:250pt" ></div>
+  </body>
+</html>
