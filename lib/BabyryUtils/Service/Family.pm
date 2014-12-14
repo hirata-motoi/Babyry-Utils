@@ -12,10 +12,6 @@ use parent qw/BabyryUtils::Base/;
 use BabyryUtils::Service::Child;
 
 my $sqla = SQL::Abstract->new;
-#my $strp = DateTime::Format::Strptime->new(
-#    pattern   => '%Y-%m-%d %H:%M:%S',
-#    time_zone => 'UTC',
-#);
 
 sub paired_families {
     my ($self, $dbname) = @_;
@@ -103,12 +99,6 @@ sub get_latest_upload_date {
     my $latest = (sort {$b <=> $a} @unixtimes)[0];
     return $latest;
 }
-
-#sub string2unixtime {
-#    my $string = shift;
-#    my $dt = $strp->parse_datetime($string);
-#    return $dt->epoch;
-#}
 
 
 1;
