@@ -18,11 +18,10 @@ use JSON::XS;
 use List::Util qw/max min/;
 use Data::Dumper;
 
-my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(time);
-#my $yyyymmdd = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
-my $yyyymmdd = "20141212";
+my $dbname = "babyry";
 
-my $dbname = "babyry_$yyyymmdd";
+my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(time);
+my $yyyymmdd = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
 
 # ペアになっている人だけが対象
 my ($family_role, $users) = BabyryUtils::Service::Family->new->paired_families($dbname);
@@ -37,7 +36,10 @@ for my $family_id (keys %$family_role) {
     $family_role->{$family_id}->{bestshot_num_at_start_date} ||= 0;
     $family_role->{$family_id}->{bestshot_num_after_start_date} ||= 0;
     my $bestshot_num_after_and_at_start_date = $family_role->{$family_id}->{bestshot_num_at_start_date} + $family_role->{$family_id}->{bestshot_num_after_start_date};
-    push @y, 100 * $bestshot_num_after_and_at_start_date / ($family_role->{$family_id}->{elapsed_time} / 60 / 60 / 24);
+
+    my $elapsed_date = int($family_role->{$family_id}->{elapsed_time} / 60 / 60 / 24 + 1);
+
+    push @y, 100 * $bestshot_num_after_and_at_start_date / $elapsed_date;
 }
 
 # vs BestShot総数
@@ -128,7 +130,8 @@ sub output {
 
     my $text = <<"TEXT";
 <script>
-        var d   = $data_text,
+        var d  = $data_text,
+        title  = "$filename",
         xlabel = "$xlabel",
         ylabel = "$ylabel",
         xticks = $xticks,
@@ -138,7 +141,9 @@ TEXT
     my @rows = ();
     my $tmpl_path = 'tmpl/scatter_template.html';
     open my $fh, "< $tmpl_path" or die;
-    open my $fh2, "> tmpl/scatterDiagram/$filename.html" or die;
+    my $today_path = BabyryUtils->base_dir . "/tmpl/scatterDiagram/$yyyymmdd";
+    `mkdir $today_path` unless (-e $today_path);
+    open my $fh2, "> tmpl/scatterDiagram/$yyyymmdd/$filename.html" or die;
     while (<$fh>) {
         if ($_ =~ /DATA_CONTAINER/) {
             print $fh2 $text."\n";

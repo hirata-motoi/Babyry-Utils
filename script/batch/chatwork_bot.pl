@@ -106,10 +106,6 @@ sub get_message {
 }
 
 sub get_dbname {
-    my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(time);
-    #my $yyyymmdd = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
-    my $yyyymmdd = "20141212";
-
-    my $dbname = "babyry_$yyyymmdd";
+    my $dbname = "babyry";
     return $dbname;
 }
