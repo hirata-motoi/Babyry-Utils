@@ -8,6 +8,7 @@ use SQL::Abstract;
 use DateTime;
 use DateTime::Format::Strptime;
 use parent qw/BabyryUtils::Base/;
+use Encode;
 
 use BabyryUtils::Service::Child;
 
@@ -37,9 +38,10 @@ sub paired_families {
     $sth = $dbh->prepare($stmt);
     $sth->execute(@bind);
     while (my $row = $sth->fetchrow_hashref()) {
+        my $condition = Encode::encode('utf8', 'no-signup|ミズタニ|けんじ|テスト|簡単|すなを');
         if (
-            $row->{emailCommon} && $row->{emailCommon} =~ /(hirata\.motoi|mizutani2|rat\.tat\.tat|sands\.on\.earth|meaning\.co\.jp)/ ||
-            $row->{nickName} && $row->{nickName} =~ /(no-signup|ミズタニ|けんじ|テスト|簡単|すなを)/
+            ( $row->{emailCommon} && $row->{emailCommon} =~ /(hirata\.motoi|mizutani2|rat\.tat\.tat|sands\.on\.earth|meaning\.co\.jp)/ )
+            || ( $row->{nickName} && $row->{nickName} =~ /($condition)/ )
         ) {
             my $family_id = $row->{familyId};
             delete $family_role{$family_id};
