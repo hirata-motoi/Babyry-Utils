@@ -109,7 +109,7 @@ sub insert_record {
     print "$class $nummm\n";
 
     $dbh->do($insert_query);
-    $dbh->do("DROP TABLE $class;");
+    $dbh->do("DROP TABLE IF EXISTS $class;");
     $dbh->do("RENAME TABLE ${class}_new to $class;");
 }
 
