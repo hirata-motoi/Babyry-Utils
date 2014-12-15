@@ -27,15 +27,16 @@ my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime(tim
 my $yyyymmdd = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
 
 # create db
-my $dbh = DBI->connect($CONFIG->{db_master}, $MYSQL_USER, $MYSQL_PASS, {
+# domain is written in hosts or dns
+my $dbh = DBI->connect('dbi:mysql::db_master', $MYSQL_USER, $MYSQL_PASS, {
 });
 
-my $res = $dbh->do("SHOW CREATE DATABASE babyry_$yyyymmdd");
-if ($res) {
-    die "Database already exist.";
-}
-$dbh->do("CREATE DATABASE babyry_$yyyymmdd");
-$dbh->do("USE babyry_$yyyymmdd");
+#my $res = $dbh->do("SHOW CREATE DATABASE babyry_$yyyymmdd");
+#if ($res) {
+#    die "Database already exist.";
+#}
+#$dbh->do("CREATE DATABASE babyry_$yyyymmdd");
+$dbh->do("USE babyry");
 
 for my $class (@$CLASSES) {
     print "Backup $class\n";
@@ -102,8 +103,14 @@ sub insert_record {
         $query_value_string =~ s/\"NULL\"/NULL/g;
         push @query_values, $query_value_string;
     }
-    my $insert_query = 'INSERT INTO ' . $class . ' (' . join(',', @all_keys) . ') VALUES ' . join(',', @query_values) . ';';
+    my $insert_query = 'INSERT INTO ' . $class . '_new' . ' (' . join(',', @all_keys) . ') VALUES ' . join(',', @query_values) . ';';
+
+    my $nummm = @query_values;
+    print "$class $nummm\n";
+
     $dbh->do($insert_query);
+    $dbh->do("DROP TABLE $class;");
+    $dbh->do("RENAME TABLE ${class}_new to $class;");
 }
 
 sub prepare_record {
@@ -112,7 +119,7 @@ sub prepare_record {
     my $record = shift;
     my $insert_record_list = shift;
 
-    my $res = $dbh->do("SHOW CREATE TABLE $class");
+    my $res = $dbh->do("SHOW CREATE TABLE ${class}_new");
 
     my $type_from_key = {};
     my $value_from_key = {};
@@ -131,7 +138,7 @@ sub prepare_record {
             $created_keys->{$key} = 1;
             push @ddl_keys, "$key $type_from_key->{$key}";
         }
-        my $ddl = "CREATE TABLE $class(" . join(',', @ddl_keys) . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;';
+        my $ddl = "CREATE TABLE ${class}_new (" . join(',', @ddl_keys) . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;';
         $dbh->do($ddl);
     } else {
         for my $key (keys %{$record}) {
@@ -144,7 +151,7 @@ sub prepare_record {
 
             if (!$created_keys->{$key}) {
                 (my $type, my $value) = get_type_and_value($key, $record->{$key}, $class);
-                my $alter_ddl = "ALTER TABLE $class ADD $key $type;";
+                my $alter_ddl = "ALTER TABLE ${class}_new ADD $key $type;";
                 $dbh->do($alter_ddl);
                 $created_keys->{$key} = 1;
             }
