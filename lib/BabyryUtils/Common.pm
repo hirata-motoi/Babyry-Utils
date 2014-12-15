@@ -51,7 +51,7 @@ sub _load_keyvault {
     $__KEYVAULT = do( $config_full_path );
 }
 
-sub db_config { ProtoServer::ConfigLoader->new(env())->db_config }
+sub db_config { BabyryUtils::ConfigLoader->new(env())->db_config }
 
 1;
 
