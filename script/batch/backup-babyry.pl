@@ -9,6 +9,7 @@ use LWP;
 use DBI;
 use DateTime;
 use Encode;
+use URI::Escape;
 
 use BabyryUtils::Common;
 
@@ -31,11 +32,6 @@ my $yyyymmdd = sprintf("%04d%02d%02d", $year + 1900, $mon + 1, $mday);
 my $dbh = DBI->connect('dbi:mysql::db_master', $MYSQL_USER, $MYSQL_PASS, {
 });
 
-#my $res = $dbh->do("SHOW CREATE DATABASE babyry_$yyyymmdd");
-#if ($res) {
-#    die "Database already exist.";
-#}
-#$dbh->do("CREATE DATABASE babyry_$yyyymmdd");
 $dbh->do("USE babyry");
 
 for my $class (@$CLASSES) {
@@ -46,11 +42,12 @@ for my $class (@$CLASSES) {
     my $index = 0;
     my $limit = 1000;
     my $insert_record_list = [];
+    my $where_createdAt = uri_escape('where={"createdAt":{"$gt":"2010-01-01T00:00:00.000Z"}}');
     while(1) {
         my $skip = $limit * $index;
         my $ua = LWP::UserAgent->new;
         my $res = $ua->get(
-            "https://api.parse.com/1/classes/$class?limit=$limit&skip=$skip",
+            "https://api.parse.com/1/classes/$class?limit=$limit&order=createdAt&$where_createdAt",
             "X-Parse-Application-Id" => $APPLICATION_ID,
             "X-Parse-REST-API-Key"   => $CLIENT_KEY
         );
@@ -62,9 +59,13 @@ for my $class (@$CLASSES) {
 
             my $res_num = 0;
             for my $res (keys %{$data}) {
+                my $max_num = scalar(@{$data->{$res}});
                 for my $record (@{$data->{$res}}) {
                     my $created_keys = &prepare_record($class, $created_keys, $record, $insert_record_list);
                     $res_num++;
+                    if ($max_num == $res_num) {
+                        $where_createdAt = uri_escape('where={"createdAt":{"$gt":"' . $record->{createdAt} . '"}}');
+                    }
                 }
             }
             last if ($res_num < $limit);
